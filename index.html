@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAKIB // OSINT & Public Reference Terminal</title>
+  <style>
+    :root {
+      --bg-primary: #060913;
+      --bg-card: rgba(17, 25, 46, 0.84);
+      --border-subtle: rgba(56, 189, 248, 0.18);
+      --border-hover: rgba(56, 189, 248, 0.6);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --danger: #f87171;
+      --success: #34d399;
+      --warning: #fbbf24;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 20px 14px;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.1), transparent 35%),
+        radial-gradient(circle at 85% 80%, rgba(129, 140, 248, 0.1), transparent 40%),
+        var(--bg-primary);
+      color: var(--text-main);
+    }
+
+    /* Loading Screen */
+    .loader-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: var(--bg-primary);
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+
+    .loader-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 3px solid rgba(56, 189, 248, 0.18);
+      border-top-color: var(--accent);
+      animation: spin 0.85s linear infinite;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.25);
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loader-text {
+      font-size: 0.78rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Login / Lock Screen */
+    .lock-wrap {
+      display: none;
+      max-width: 420px;
+      margin: 75px auto;
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      padding: 30px 26px;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(56, 189, 248, 0.07);
+    }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 5px 11px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      font-weight: 700;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .lock-wrap h2 {
+      margin: 0 0 6px;
+      font-size: 1.45rem;
+      font-weight: 700;
+    }
+
+    .lock-wrap p {
+      margin: 0 0 20px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 13px 15px;
+      border-radius: 11px;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      background: rgba(6, 9, 19, 0.88);
+      color: #fff;
+      font-size: 0.96rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .err-msg {
+      color: var(--danger);
+      font-size: 0.82rem;
+      margin: 8px 0 12px;
+      min-height: 18px;
+    }
+
+    .btn-primary {
+      padding: 13px 20px;
+      border: none;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.94rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(56, 189, 248, 0.42);
+    }
+
+    /* Main Dashboard */
+    .container {
+      display: none;
+      max-width: 960px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      padding: 26px;
+      border-radius: 20px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      background: linear-gradient(90deg, #f8fafc, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .role-pill {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .role-admin {
+      color: var(--success);
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.32);
+    }
+
+    .role-guest {
+      color: var(--warning);
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.32);
+    }
+
+    .action-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-ghost {
+      padding: 8px 13px;
+      font-size: 0.82rem;
+      border-radius: 9px;
+      background: rgba(15, 23, 42, 0.92);
+      color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-ghost:hover {
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-admin-toggle {
+      padding: 8px 13px;
+      font-size: 0.82rem;
+      border-radius: 9px;
+      background: rgba(52, 211, 153, 0.12);
+      color: var(--success);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-admin-toggle:hover {
+      background: rgba(52, 211, 153, 0.22);
+    }
+
+    .admin-panel {
+      display: none;
+      margin: 16px 0 22px;
+      padding: 18px;
+      border-radius: 14px;
+      background: rgba(6, 9, 19, 0.88);
+      border: 1px solid rgba(52, 211, 153, 0.35);
+    }
+
+    .admin-panel h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      color: var(--success);
+    }
+
+    .admin-panel p {
+      margin: 0 0 14px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .admin-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .admin-status {
+      font-size: 0.82rem;
+      color: var(--success);
+    }
+
+    p.sub {
+      margin: 0 0 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search-box .input-field {
+      flex: 1;
+      min-width: 230px;
+    }
+
+    .status-badge {
+      display: none;
+      margin-top: 16px;
+      padding: 7px 14px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.09);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      font-size: 0.82rem;
+      color: #bae6fd;
+      font-weight: 500;
+    }
+
+    h2.sec-title {
+      margin: 26px 0 12px;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+      padding-bottom: 8px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: rgba(6, 9, 19, 0.75);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 12px;
+      color: #e2e8f0;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+      background: rgba(15, 23, 42, 0.96);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), 0 0 15px rgba(56, 189, 248, 0.14);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 0.93rem;
+      color: #f8fafc;
+    }
+
+    .card-arrow {
+      color: var(--accent);
+      font-size: 0.9rem;
+    }
+
+    .card small {
+      display: block;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 0.79rem;
+      line-height: 1.4;
+    }
+
+    .empty-hint {
+      color: var(--text-muted);
+      font-size: 0.86rem;
+      padding: 14px;
+      border-radius: 10px;
+      background: rgba(6, 9, 19, 0.45);
+      border: 1px dashed rgba(148, 163, 184, 0.2);
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(148, 163, 184, 0.14);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loaderScreen" class="loader-screen">
+    <div class="spinner"></div>
+    <div class="loader-text">Initializing RAKIB // OSINT</div>
+  </div>
+
+  <!-- Login / Access Screen -->
+  <div id="lockScreen" class="lock-wrap">
+    <div class="brand-tag"><span class="dot"></span> RAKIB SECURE TERMINAL</div>
+    <h2>Terminal Login</h2>
+    <p>Enter your Admin or Guest access key to open the OSINT analysis workspace.</p>
+    <input id="passInput" class="input-field" type="password" placeholder="Enter access key..." autocomplete="off" />
+    <div id="passErr" class="err-msg"></div>
+    <button id="unlockBtn" class="btn-primary" style="width:100%;" type="button">Login & Unlock</button>
+  </div>
+
+  <!-- Main Workspace -->
+  <div id="mainApp" class="container">
+    <div class="top-bar">
+      <div class="title-group">
+        <h1>RAKIB // OSINT</h1>
+        <span id="roleBadge" class="role-pill"></span>
+      </div>
+      <div class="action-group">
+        <button id="adminToggleBtn" class="btn-admin-toggle" style="display:none;" type="button">Admin Panel</button>
+        <button id="clearBtn" class="btn-ghost" type="button">Clear</button>
+        <button id="lockBtn" class="btn-ghost" type="button">Logout</button>
+      </div>
+    </div>
+
+    <div id="adminPanel" class="admin-panel">
+      <h3>Admin Key Manager</h3>
+      <p>Update your Admin password or Guest access key in this browser.</p>
+      <div class="admin-grid">
+        <div>
+          <label class="field-label" for="newAdminKey">Admin Password</label>
+          <input id="newAdminKey" class="input-field" type="text" placeholder="Enter new admin key" />
+        </div>
+        <div>
+          <label class="field-label" for="newGuestKey">Guest Access Key</label>
+          <input id="newGuestKey" class="input-field" type="text" placeholder="Enter new guest key" />
+        </div>
+      </div>
+      <div class="admin-actions">
+        <button id="saveKeysBtn" class="btn-primary" style="padding:10px 16px; font-size:0.86rem;" type="button">Save Keys</button>
+        <button id="resetKeysBtn" class="btn-ghost" type="button">Reset Default</button>
+        <span id="adminStatus" class="admin-status"></span>
+      </div>
+    </div>
+
+    <p class="sub">Enter a name, username, email, domain, IP address, or phone number to generate direct public lookup links.</p>
+
+    <div class="search-box">
+      <input id="queryInput" class="input-field" type="text" placeholder="e.g. John Doe, user@domain.com, example.com, 1.1.1.1, +8801..." />
+      <button id="analyzeBtn" class="btn-primary" type="button">Analyze & Generate</button>
+    </div>
+
+    <div id="typeBadge" class="status-badge"></div>
+
+    <h2 class="sec-title">01 // Target Lookup Endpoints</h2>
+    <div id="queryLinks" class="grid">
+      <div class="empty-hint">Enter a target above and click "Analyze & Generate" to build direct lookup links.</div>
+    </div>
+
+    <h2 class="sec-title">02 // Active Web OSINT Tools & Directories</h2>
+    <div id="toolsDirectory" class="grid"></div>
+
+    <div class="footer-note">
+      <span>RAKIB // Public Open-Source Reference Builder</span>
+      <span>No target queries are stored on any server</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const DEFAULT_KEYS = {
+        admin: "rakib018786",
+        guest: "guest2026"
+      };
+
+      const STORAGE_KEYS = "rakib_osint_custom_keys_v2";
+      const SESSION_KEY = "rakib_osint_role_v2";
+
+      const WEB_OSINT_TOOLS = [
+        { name: "Epieos", desc: "Email & phone lookup for Google accounts, reviews, and profiles", url: "https://epieos.com/" },
+        { name: "Have I Been Pwned", desc: "Check if an email or phone number appeared in data breaches", url: "https://haveibeenpwned.com/" },
+        { name: "Instant Username Search", desc: "Real-time username availability check across platforms", url: "https://instantusername.com/" },
+        { name: "Intelligence X (IntelX)", desc: "Search engine for leaks, archives, and historical records", url: "https://intelx.io/" },
+        { name: "OSINT Framework", desc: "Categorized directory of open-source intelligence resources", url: "https://osintframework.com/" },
+        { name: "Osintly", desc: "Browser lookup directory for usernames, emails, domains, and IPs", url: "https://osintly.com/" },
+        { name: "Rocksosint", desc: "OSINT reference directory and lookup utilities", url: "https://osint.rocks/" },
+        { name: "Shodan", desc: "Search engine for internet-connected devices, servers, and IPs", url: "https://www.shodan.io/" },
+        { name: "The OSINT Rack", desc: "Curated directory of open-source OSINT tools and links", url: "https://theosintrack.com/" },
+        { name: "UserSearch", desc: "Web tool for username and profile discovery across platforms", url: "https://usersearch.org/" },
+        { name: "WhatsMyName", desc: "Browser tool to check usernames across many websites", url: "https://whatsmyname.app/" },
+        { name: "Yandex Images", desc: "Reverse image search for visual similarity and source matching", url: "https://yandex.com/images/" },
+        { name: "Start.me OSINT Boards", desc: "Curated OSINT dashboards and reference collections", url: "https://start.me/" },
+        { name: "Awesome OSINT (GitHub)", desc: "Curated GitHub repository of OSINT tools and references", url: "https://github.com/jivoi/awesome-osint" }
+      ];
+
+      function getKeys() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS));
+          if (saved && saved.admin && saved.guest) {
+            return {
+              admin: String(saved.admin),
+              guest: String(saved.guest)
+            };
+          }
+        } catch (err) {}
+        return {
+          admin: DEFAULT_KEYS.admin,
+          guest: DEFAULT_KEYS.guest
+        };
+      }
+
+      function renderToolsDirectory() {
+        const container = document.getElementById("toolsDirectory");
+        if (!container) return;
+        container.innerHTML = "";
+
+        WEB_OSINT_TOOLS.forEach((tool) => {
+          const card = document.createElement("a");
+          card.className = "card";
+          card.href = tool.url;
+          card.target = "_blank";
+          card.rel = "noopener noreferrer";
+
+          const top = document.createElement("div");
+          top.className = "card-top";
+
+          const titleSpan = document.createElement("span");
+          titleSpan.textContent = tool.name;
+
+          const arrowSpan = document.createElement("span");
+          arrowSpan.className = "card-arrow";
+          arrowSpan.textContent = "↗";
+
+          const descSmall = document.createElement("small");
+          descSmall.textContent = tool.desc;
+
+          top.appendChild(titleSpan);
+          top.appendChild(arrowSpan);
+          card.appendChild(top);
+          card.appendChild(descSmall);
+          container.appendChild(card);
+        });
+      }
+
+      function showLockScreen() {
+        document.getElementById("mainApp").style.display = "none";
+        document.getElementById("lockScreen").style.display = "block";
+      }
+
+      function applyRoleUI(role) {
+        const roleBadge = document.getElementById("roleBadge");
+        const adminBtn = document.getElementById("adminToggleBtn");
+        const adminPanel = document.getElementById("adminPanel");
+
+        if (role === "ADMIN") {
+          roleBadge.textContent = "ADMIN ACCESS";
+          roleBadge.className = "role-pill role-admin";
+          adminBtn.style.display = "inline-block";
+          const keys = getKeys();
+          document.getElementById("newAdminKey").value = keys.admin;
+          document.getElementById("newGuestKey").value = keys.guest;
+        } else {
+          roleBadge.textContent = "GUEST ACCESS";
+          roleBadge.className = "role-pill role-guest";
+          adminBtn.style.display = "none";
+          adminPanel.style.display = "none";
+        }
+
+        document.getElementById("lockScreen").style.display = "none";
+        document.getElementById("mainApp").style.display = "block";
+      }
+
+      function lockApp() {
+        sessionStorage.removeItem(SESSION_KEY);
+        document.getElementById("adminPanel").style.display = "none";
+        document.getElementById("passInput").value = "";
+        document.getElementById("passErr").textContent = "";
+        showLockScreen();
+      }
+
+      function unlockApp() {
+        const passInput = document.getElementById("passInput");
+        const err = document.getElementById("passErr");
+        const val = passInput.value.trim();
+        const keys = getKeys();
+
+        if (val === keys.admin) {
+          sessionStorage.setItem(SESSION_KEY, "ADMIN");
+          err.textContent = "";
+          applyRoleUI("ADMIN");
+        } else if (val === keys.guest) {
+          sessionStorage.setItem(SESSION_KEY, "GUEST");
+          err.textContent = "";
+          applyRoleUI("GUEST");
+        } else {
+          err.textContent = "Invalid access key. Please check and try again.";
+        }
+      }
+
+      function toggleAdminPanel() {
+        const panel = document.getElementById("adminPanel");
+        const status = document.getElementById("adminStatus");
+        status.textContent = "";
+        panel.style.display = panel.style.display === "block" ? "none" : "block";
+      }
+
+      function saveKeys() {
+        const newAdmin = document.getElementById("newAdminKey").value.trim();
+        const newGuest = document.getElementById("newGuestKey").value.trim();
+        const status = document.getElementById("adminStatus");
+
+        if (!newAdmin || !newGuest) {
+          status.style.color = "#f87171";
+          status.textContent = "Both Admin and Guest keys are required.";
+          return;
+        }
+        if (newAdmin === newGuest) {
+          status.style.color = "#f87171";
+          status.textContent = "Admin and Guest keys must be different.";
+          return;
+        }
+
+        localStorage.setItem(STORAGE_KEYS, JSON.stringify({ admin: newAdmin, guest: newGuest }));
+        status.style.color = "#34d399";
+        status.textContent = "Keys updated successfully.";
+      }
+
+      function resetKeys() {
+        localStorage.removeItem(STORAGE_KEYS);
+        document.getElementById("newAdminKey").value = DEFAULT_KEYS.admin;
+        document.getElementById("newGuestKey").value = DEFAULT_KEYS.guest;
+        const status = document.getElementById("adminStatus");
+        status.style.color = "#34d399";
+        status.textContent = "Reset to default keys.";
+      }
+
+      function clearSearch() {
+        document.getElementById("queryInput").value = "";
+        document.getElementById("typeBadge").style.display = "none";
+        document.getElementById("queryLinks").innerHTML =
+          '<div class="empty-hint">Enter a target above and click "Analyze & Generate" to build direct lookup links.</div>';
+      }
+
+      function runAnalysis() {
+        const raw = document.getElementById("queryInput").value.trim();
+        const badge = document.getElementById("typeBadge");
+        const queryLinks = document.getElementById("queryLinks");
+        queryLinks.innerHTML = "";
+
+        if (!raw) {
+          badge.style.display = "inline-block";
+          badge.textContent = "Input required: enter a name, email, domain, IP, or phone number.";
+          queryLinks.innerHTML = '<div class="empty-hint">No target provided yet.</div>';
+          return;
+        }
+
+        const cleanedPhone = raw.replace(/[^\d+]/g, "");
+        const isPhone = /^\+?\d{7,15}$/.test(cleanedPhone);
+        const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
+        const isIP = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(raw);
+        const isDomain = /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/.test(raw) && !isEmail && !isIP;
+        const q = encodeURIComponent(raw);
+        const exactQ = encodeURIComponent(`"${raw}"`);
+
+        let items = [];
+        if (isEmail) {
+          const parts = raw.split("@");
+          const userPart = parts[0];
+          const domainPart = parts[1];
+          badge.textContent = `DETECTED: EMAIL ADDRESS // ${raw}`;
+          items = [
+            { title: "Epieos", desc: "Email OSINT lookup & profile references", url: "https://epieos.com/" },
+            { title: "Have I Been Pwned", desc: "Check public data breach exposure", url: "https://haveibeenpwned.com/" },
+            { title: "Google Exact Match", desc: "Search exact email across indexed web pages", url: `https://www.google.com/search?q=${exactQ}` },
+            { title: "GitHub Code & Commits", desc: "Check public repositories and commit metadata", url: `https://github.com/search?q=${q}` },
+            { title: "Username / Prefix Match", desc: `Search "${userPart}" across public web sources`, url: `https://www.google.com/search?q=${encodeURIComponent('"' + userPart + '"')}` },
+            { title: "Reddit Mentions", desc: "Search Reddit posts and threads", url: `https://www.reddit.com/search/?q=${exactQ}` },
+            { title: "X / Twitter Mentions", desc: "Public posts referencing this email", url: `https://www.google.com/search?q=site:x.com+${exactQ}` },
+            { title: "Domain Index Lookup", desc: `Explore indexed pages on ${domainPart}`, url: `https://www.google.com/search?q=site:${encodeURIComponent(domainPart)}` }
+          ];
+        } else if (isPhone) {
+          const p = encodeURIComponent(cleanedPhone);
+          const exactP = encodeURIComponent(`"${cleanedPhone}"`);
+          badge.textContent = `DETECTED: PHONE NUMBER // ${cleanedPhone}`;
+          items = [
+            { title: "Epieos", desc: "Phone number lookup & references", url: "https://epieos.com/" },
+            { title: "Google Phone Search", desc: "General web search for this phone number", url: `https://www.google.com/search?q=${p}` },
+            { title: "Exact Number Match", desc: "Strict quoted match across indexed pages", url: `https://www.google.com/search?q=${exactP}` },
+            { title: "GitHub Mentions", desc: "Search public code and text files", url: `https://github.com/search?q=${p}` },
+            { title: "Reddit Mentions", desc: "Search public forum discussions", url: `https://www.reddit.com/search/?q=${p}` },
+            { title: "X / Twitter Search", desc: "Public social mentions on X", url: `https://www.google.com/search?q=site:x.com+${exactP}` },
+            { title: "YouTube Mentions", desc: "Search video titles and descriptions", url: `https://www.youtube.com/results?search_query=${p}` }
+          ];
+        } else if (isIP) {
+          badge.textContent = `DETECTED: IP ADDRESS // ${raw}`;
+          items = [
+            { title: "Shodan IP Lookup", desc: "Internet-connected host & service details", url: `https://www.shodan.io/host/${q}` },
+            { title: "Intelligence X (IntelX)", desc: "Search archives and indexed records for IP", url: "https://intelx.io/" },
+            { title: "Google Exact IP", desc: "Search IP address mentions on the web", url: `https://www.google.com/search?q=${exactQ}` },
+            { title: "GitHub IP Mentions", desc: "Search public code or configs for IP", url: `https://github.com/search?q=${exactQ}` }
+          ];
+        } else if (isDomain) {
+          badge.textContent = `DETECTED: DOMAIN // ${raw}`;
+          items = [
+            { title: "Shodan Domain Search", desc: `Search hosts associated with ${raw}`, url: `https://www.shodan.io/search?query=${q}` },
+            { title: "Google Site Index", desc: `All indexed URLs under ${raw}`, url: `https://www.google.com/search?q=site:${q}` },
+            { title: "External Mentions", desc: "Backlinks and mentions across the web", url: `https://www.google.com/search?q=${exactQ}` },
+            { title: "crt.sh SSL Logs", desc: "Certificate transparency & subdomain records", url: `https://crt.sh/?q=${q}` },
+            { title: "WHOIS Registry", desc: "Domain registration & nameserver details", url: `https://www.whois.com/whois/${q}` },
+            { title: "Intelligence X (IntelX)", desc: "Search archives and historical records", url: "https://intelx.io/" },
+            { title: "GitHub References", desc: "Code or configuration mentions on GitHub", url: `https://github.com/search?q=${exactQ}` }
+          ];
+        } else {
+          badge.textContent = `DETECTED: NAME / USERNAME / QUERY // ${raw}`;
+          items = [
+            { title: "WhatsMyName", desc: "Check username across many websites", url: "https://whatsmyname.app/" },
+            { title: "Instant Username Search", desc: "Real-time username availability check", url: "https://instantusername.com/" },
+            { title: "UserSearch", desc: "Username and profile search web tool", url: "https://usersearch.org/" },
+            { title: "Google Web Search", desc: "Broad open-web search results", url: `https://www.google.com/search?q=${q}` },
+            { title: "Exact Phrase Match", desc: "Strict quoted phrase lookup", url: `https://www.google.com/search?q=${exactQ}` },
+            { title: "GitHub Profiles & Repos", desc: "Developer profiles, commits, and repositories", url: `https://github.com/search?q=${q}` },
+            { title: "Reddit Search", desc: "Public posts, comments, and user mentions", url: `https://www.reddit.com/search/?q=${q}` },
+            { title: "LinkedIn Public Index", desc: "Public profiles via Google search", url: `https://www.google.com/search?q=site:linkedin.com+${q}` },
+            { title: "Facebook Public Index", desc: "Public pages and posts via Google", url: `https://www.google.com/search?q=site:facebook.com+${q}` },
+            { title: "X / Twitter Public Index", desc: "Public profiles and posts via Google", url: `https://www.google.com/search?q=site:x.com+${q}` },
+            { title: "Instagram Public Index", desc: "Public handles via Google search", url: `https://www.google.com/search?q=site:instagram.com+${q}` },
+            { title: "YouTube Search", desc: "Channels, videos, and mentions", url: `https://www.youtube.com/results?search_query=${q}` }
+          ];
+        }
+
+        badge.style.display = "inline-block";
+        items.forEach((item) => {
+          const card = document.createElement("a");
+          card.className = "card";
+          card.href = item.url;
+          card.target = "_blank";
+          card.rel = "noopener noreferrer";
+
+          const top = document.createElement("div");
+          top.className = "card-top";
+
+          const titleSpan = document.createElement("span");
+          titleSpan.textContent = item.title;
+
+          const arrowSpan = document.createElement("span");
+          arrowSpan.className = "card-arrow";
+          arrowSpan.textContent = "↗";
+
+          const descSmall = document.createElement("small");
+          descSmall.textContent = item.desc;
+
+          top.appendChild(titleSpan);
+          top.appendChild(arrowSpan);
+          card.appendChild(top);
+          card.appendChild(descSmall);
+          queryLinks.appendChild(card);
+        });
+      }
+
+      document.getElementById("unlockBtn").addEventListener("click", unlockApp);
+      document.getElementById("adminToggleBtn").addEventListener("click", toggleAdminPanel);
+      document.getElementById("saveKeysBtn").addEventListener("click", saveKeys);
+      document.getElementById("resetKeysBtn").addEventListener("click", resetKeys);
+      document.getElementById("clearBtn").addEventListener("click", clearSearch);
+      document.getElementById("lockBtn").addEventListener("click", lockApp);
+      document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
+
+      document.getElementById("passInput").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") unlockApp();
+      });
+
+      document.getElementById("queryInput").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") runAnalysis();
+      });
+
+      renderToolsDirectory();
+
+      const savedRole = sessionStorage.getItem(SESSION_KEY);
+      if (savedRole === "ADMIN" || savedRole === "GUEST") {
+        applyRoleUI(savedRole);
+      } else {
+        showLockScreen();
+      }
+
+      window.addEventListener("load", function () {
+        setTimeout(function () {
+          document.getElementById("loaderScreen").classList.add("hidden");
+        }, 450);
+      });
+    })();
+  </script>
+</body>
+      </html>
